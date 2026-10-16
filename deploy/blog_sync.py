@@ -91,6 +91,7 @@ def extract_content(archive: bytes, dest: Path) -> int:
 def load_builder():
     spec = importlib.util.spec_from_file_location("blog_build", HOME / "build.py")
     mod = importlib.util.module_from_spec(spec)
+    sys.modules["blog_build"] = mod   # dataclass ищет свой модуль в sys.modules — без этого падает
     spec.loader.exec_module(mod)
     return mod
 

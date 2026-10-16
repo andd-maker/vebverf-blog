@@ -187,6 +187,20 @@ class Sync(unittest.TestCase):
         self.assertFalse((dest / "build.py").exists())
         self.assertFalse((dest / "content" / "media" / "l.jpg").exists())
 
+    def test_load_builder_like_server(self):
+        # на сервере сборщик грузится через importlib из BLOG_HOME — 16.10 это упало на dataclass
+        old = blog_sync.HOME
+        try:
+            blog_sync.HOME = ROOT
+            mod = blog_sync.load_builder()
+            out = Path(tempfile.mkdtemp()) / "blog"
+            (Path(tempfile.mkdtemp()) / "x").mkdir()
+            res = mod.build(ROOT / "content", out, date(2026, 10, 16))
+            self.assertTrue((out / "index.html").exists())
+            self.assertEqual(res["errors"], [])
+        finally:
+            blog_sync.HOME = old
+
     def test_swap(self):
         root = Path(tempfile.mkdtemp()) / "www" / "verf"
         live = root / "blog"
