@@ -19,3 +19,11 @@ jobs:
       - run: python3 -m unittest discover -s tests -v
       - run: python3 build.py --check
       - run: python3 build.py --out /tmp/blog
+      - name: .pages.yml по схеме Pages CMS
+        run: |
+          mkdir -p tools/.pcms
+          curl -fsSL https://raw.githubusercontent.com/pagescms/pagescms/6f4e860a35d934406580287e7042e5e111e207a1/lib/config-schema.ts \
+            | sed 's|import { fieldTypes } from "@/fields/registry";|const fieldTypes = new Set(["boolean","code","date","file","image","number","reference","rich-text","select","string","text","uuid"]);|' \
+            > tools/.pcms/config-schema.ts
+          npm i --no-save --silent zod@3 js-yaml@4 tsx@4
+          npx tsx tools/check_pages_config.mjs .pages.yml

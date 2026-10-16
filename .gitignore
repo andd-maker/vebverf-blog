@@ -2,3 +2,5 @@ _site/
 __pycache__/
 *.pyc
 .DS_Store
+tools/.pcms/
+node_modules/

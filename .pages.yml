@@ -90,8 +90,26 @@ content:
         workflow: draft.yml
         confirm:
           title: Написать черновик?
-          message: Генератор возьмёт тему (вашу или следующую из списка «Темы») и через 5–10 минут положит черновик в «Статьи».
+          message: Генератор возьмёт тему (вашу или следующую утверждённую из «Темы для черновиков») и через 5–10 минут положит черновик в «Статьи».
           button: Написать
+        fields:
+          - name: tema
+            label: Тема (необязательно — иначе следующая утверждённая)
+            type: textarea
+
+  - name: temy
+    label: Темы для черновиков
+    type: file
+    path: content/temy.yml
+    format: yaml
+    fields:
+      - name: temy
+        label: Темы
+        type: object
+        list:
+          collapsible:
+            collapsed: true
+            summary: "{index}. {tema}"
         fields:
           - name: rubrika
             label: Рубрика
@@ -108,7 +126,7 @@ content:
           - name: primenimost
             label: Как это у нас
             type: select
-            description: Чем закончить статью. vebpriemka — раздел про ВебПриёмку со скриншотами; boty — про ботов под заказ; net — без примера
+            description: "Чем закончить статью: vebpriemka — раздел про ВебПриёмку со скриншотами; boty — про ботов под заказ; net — без примера"
             options:
               values: [vebpriemka, boty, net]
           - name: utverzhdeno
