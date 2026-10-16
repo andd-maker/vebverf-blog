@@ -38,6 +38,9 @@ WWW = Path(os.environ.get("BLOG_WWW", "/var/www/verf/blog"))
 STATE = HOME / "state.json"
 STOP = HOME / "STOP"
 MSK = timezone(timedelta(hours=3))
+# Приватный репозиторий: fine-grained токен только на чтение этого репозитория (Contents: read), выдаёт Альфред.
+# Пусто — репозиторий публичный, токен не нужен.
+TOKEN = os.environ.get("BLOG_GITHUB_TOKEN", "").strip()
 MAX_ARCHIVE = 200 * 1024 * 1024
 MAX_FILE = 25 * 1024 * 1024
 
@@ -48,6 +51,8 @@ def http_get(url: str, accept: str | None = None, limit: int = MAX_ARCHIVE) -> b
     req = urllib.request.Request(url, headers={"User-Agent": "vebverf-blog-sync"})
     if accept:
         req.add_header("Accept", accept)
+    if TOKEN and url.startswith("https://api.github.com/"):
+        req.add_header("Authorization", f"Bearer {TOKEN}")
     with urllib.request.urlopen(req, timeout=60) as r:
         data = r.read(limit + 1)
     if len(data) > limit:
@@ -132,7 +137,9 @@ def run(force: bool = False) -> int:
     sha = head_sha()
     if not force and st.get("sha") == sha and st.get("day") == today.isoformat() and WWW.exists():
         return 0
-    archive = http_get(f"https://codeload.github.com/{REPO}/tar.gz/{sha}")
+    # API отвечает редиректом на codeload с одноразовой ссылкой — токен дальше не уходит
+    archive = http_get(f"https://api.github.com/repos/{REPO}/tarball/{sha}" if TOKEN
+                       else f"https://codeload.github.com/{REPO}/tar.gz/{sha}")
     builder = load_builder()
     with tempfile.TemporaryDirectory(prefix="blog-") as tmp:
         files = extract_content(archive, Path(tmp))
