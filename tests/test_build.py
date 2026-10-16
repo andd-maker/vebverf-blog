@@ -84,6 +84,16 @@ class Markdown(unittest.TestCase):
         html, _ = build.markdown("Список:\n- раз\n- два")
         self.assertIn("<ul>", html)
 
+    def test_youtube_button(self):
+        html, _ = build.markdown("Текст.\n\n[Тягач по трём цифрам](https://youtube.com/shorts/O5bGaUMIKrM?si=x)\n\nhttps://youtu.be/Qi2DueKz9Z4")
+        self.assertIn('class="yt" href="https://www.youtube.com/shorts/O5bGaUMIKrM"', html)
+        self.assertIn("Тягач по трём цифрам", html)
+        self.assertIn("watch?v=Qi2DueKz9Z4", html)
+        self.assertNotIn("<iframe", html)
+        inline, _ = build.markdown("Смотрите https://youtube.com/shorts/O5bGaUMIKrM в тексте")
+        self.assertNotIn('class="yt"', inline)          # ссылка внутри абзаца — не кнопка
+        self.assertIsNone(build.youtube_url("https://evil.ru/shorts/O5bGaUMIKrM"))
+
     def test_slugify(self):
         self.assertEqual(build.slugify("Приёмка грузовика: фото!"), "priemka-gruzovika-foto")
 

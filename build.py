@@ -137,6 +137,30 @@ def split_frontmatter(text: str) -> tuple[dict, str]:
 
 # ── Markdown → HTML ──────────────────────────────────────────────────
 
+_YT = re.compile(r"^https?://(?:www\.|m\.)?(?:youtube\.com/(shorts/|watch\?v=|live/)|youtu\.be/)([A-Za-z0-9_-]{6,20})(?:[?&#][^\s]*)?$")
+_YT_LINE = re.compile(r"^\s*(?:\[([^\]]+)\]\((\S+?)\)|<?(\S+?)>?)\s*$")
+YT_ICON = ('<svg viewBox="0 0 28 20" aria-hidden="true"><rect width="28" height="20" rx="5" fill="#e62117"/>'
+           '<path d="M11 5.5v9l7.5-4.5z" fill="#fff"/></svg>')
+
+
+def youtube_url(url: str) -> str | None:
+    """Ссылка на ролик YouTube → канонический адрес (Shorts остаётся Shorts), иначе None."""
+    m = _YT.match((url or "").strip())
+    if not m:
+        return None
+    kind, vid = m.group(1) or "", m.group(2)
+    return f"https://www.youtube.com/shorts/{vid}" if kind.startswith("shorts") else f"https://www.youtube.com/watch?v={vid}"
+
+
+def youtube_button(url: str, label: str = "") -> str:
+    """Кнопка-карточка вместо встроенного плеера: плеер тянет трекеры Google до согласия на cookies,
+    а CSP сайта (frame-src) его всё равно не пустит."""
+    short = "/shorts/" in url
+    label = label or ("Ролик на YouTube" if not short else "Короткое видео на YouTube")
+    return (f'<a class="yt" href="{escape(url)}" target="_blank" rel="noopener">{YT_ICON}'
+            f'<span><b>{_emph(escape(label, quote=False))}</b><small>Смотреть на YouTube{" · Shorts" if short else ""}</small></span></a>')
+
+
 def safe_url(url: str, image: bool = False) -> str | None:
     url = url.strip()
     if image:
@@ -302,6 +326,13 @@ def markdown(md: str) -> tuple[str, list[dict]]:
             lis = "".join(f"<li>{inline(it)}</li>" for it in items)
             html.append(f"<{tag}>{lis}</{tag}>")
             continue
+        ym = _YT_LINE.match(line)
+        if ym and not para:
+            yurl = youtube_url(ym.group(2) or ym.group(3) or "")
+            if yurl:
+                html.append(youtube_button(yurl, ym.group(1) or ""))
+                i += 1
+                continue
         im = re.fullmatch(r"\s*!\[([^\]]*)\]\(([^)\s]+)(?:\s+\"([^\"]*)\")?\)\s*", line)
         if im:
             flush()
@@ -345,6 +376,8 @@ class Post:
     draft: bool = False
     source: str = ""
     words: int = 0
+    youtube: str | None = None
+    youtube_title: str = ""
 
     @property
     def url(self) -> str:
@@ -386,7 +419,9 @@ def load_post(path: Path) -> Post:
     cover = safe_url(str(cover), image=True) if cover else None
     return Post(slug=slug, title=title, day=day, description=desc, body_html=html, toc=toc,
                 cover=cover, cover_alt=str(meta.get("cover_alt") or title), draft=bool(meta.get("draft")),
-                source=path.name, words=len(plain.split()))
+                source=path.name, words=len(plain.split()),
+                youtube=youtube_url(str(meta.get("youtube") or "")),
+                youtube_title=str(meta.get("youtube_title") or "").strip())
 
 
 def load_posts(content: Path) -> tuple[list[Post], list[str]]:
@@ -491,6 +526,15 @@ font-size:clamp(16.5px,1.15vw,18px);min-width:0}
 .body table{border-collapse:collapse;width:100%;font-size:.94em}
 .body th,.body td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
 .body th{background:var(--line2);font-family:Manrope;font-weight:700}
+.yt{display:flex;align-items:center;gap:14px;max-width:440px;margin:0 0 1.1em;padding:12px 16px;border:1px solid var(--line);
+border-radius:10px;background:var(--pa);color:var(--ink)!important;text-decoration:none!important;transition:border-color .2s,transform .2s}
+.yt:hover{border-color:#e62117;transform:translateY(-1px)}
+.yt svg{width:34px;height:24px;flex:none}
+.yt span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.yt b{font-family:Manrope;font-weight:700;font-size:15.5px;line-height:1.3}
+.yt small{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.04em;color:var(--dim)}
+.plate .yt{margin:18px 0 0;background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.16);color:var(--plate-ink)!important}
+.plate .yt small{color:var(--plate-soft)}
 .cover{margin:0 0 clamp(18px,3vw,30px);border-radius:6px;overflow:hidden}
 .cover img{width:100%;height:auto;display:block}
 .side{position:sticky;top:20px;display:grid;gap:16px}
@@ -630,9 +674,10 @@ def render_post(p: Post, others: list[Post]) -> str:
     if p.cover:
         ld["image"] = SITE + p.cover
     ld_json = json.dumps(ld, ensure_ascii=False).replace("</", "<\\/")
+    yt = youtube_button(p.youtube, p.youtube_title) if p.youtube else ""
     body = f"""<header class="plate"><span class="kicker">Блог · {ru_date(p.day)}</span>
 <h1>{escape(p.title)}</h1><p>{escape(p.description)}</p>
-<div class="meta"><span>{p.minutes} мин чтения</span><a href="{BLOG}/">← все статьи</a></div></header>
+<div class="meta"><span>{p.minutes} мин чтения</span><a href="{BLOG}/">← все статьи</a></div>{yt}</header>
 <div class="post"><article class="body">{cover}{p.body_html}</article>
 <aside class="side">{toc}{ORDER_BOX}</aside></div>
 {more}"""
@@ -703,7 +748,7 @@ def build(content: Path, out: Path, today: date) -> dict:
                 shutil.copyfile(f, dst)
                 copied += 1
     feed = [{"slug": p.slug, "title": p.title, "description": p.description, "date": p.day.isoformat(),
-             "url": SITE + p.url, "cover": p.cover} for p in live]
+             "url": SITE + p.url, "cover": p.cover, "youtube": p.youtube} for p in live]
     (out / "posts.json").write_text(json.dumps(feed, ensure_ascii=False, indent=1), encoding="utf-8")
     return {"published": len(live), "drafts": sum(p.draft for p in posts),
             "scheduled": sum(1 for p in posts if not p.draft and p.day > today), "media": copied, "errors": errors}

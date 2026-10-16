@@ -64,6 +64,14 @@ content:
       - name: cover_alt
         label: Подпись к обложке (для незрячих и поиска)
         type: string
+      - name: youtube
+        label: Ролик на YouTube
+        type: string
+        description: "Ссылка на наш ролик по теме (youtube.com/shorts/…). Будет кнопкой под заголовком и второй кнопкой в анонсе. Ролик внутри текста — вставьте ссылку отдельной строкой, станет кнопкой."
+      - name: youtube_title
+        label: Надпись на кнопке ролика
+        type: string
+        description: "Например: «Тягач по трём цифрам — 30 секунд». Пусто — «Короткое видео на YouTube»."
       - name: generated
         label: Написано ИИ
         type: boolean
