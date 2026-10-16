@@ -85,21 +85,11 @@ content:
           message: Генератор возьмёт тему (вашу или следующую из списка «Темы») и через 5–10 минут положит черновик в «Статьи».
           button: Написать
         fields:
-          - name: tema
-            label: Тема (необязательно — иначе следующая из списка)
-            type: textarea
-
-  - name: temy
-    label: Темы для черновиков
-    type: file
-    path: content/temy.yml
-    format: yaml
-    fields:
-      - name: temy
-        label: Темы
-        type: object
-        list: true
-        fields:
+          - name: rubrika
+            label: Рубрика
+            type: select
+            options:
+              values: ["Сервис и клиент", "Порядок в цехе", "Внедрение инструментов", "Рынок для сервиса"]
           - name: tema
             label: Тема
             type: string
@@ -107,6 +97,17 @@ content:
           - name: zametka
             label: Что важно сказать
             type: text
+          - name: primenimost
+            label: Как это у нас
+            type: select
+            description: Чем закончить статью. vebpriemka — раздел про ВебПриёмку со скриншотами; boty — про ботов под заказ; net — без примера
+            options:
+              values: [vebpriemka, boty, net]
+          - name: utverzhdeno
+            label: Утверждено
+            type: boolean
+            default: false
+            description: Генератор берёт только утверждённые темы
           - name: sdelano
             label: Черновик написан (дата)
             type: string
