@@ -1,0 +1,21 @@
+# Проверка на каждый push: статьи разбираются без ошибок, сборщик и синхронизация проходят тесты.
+# Красный CI не останавливает сервер (он забирает main сам), но ломаная статья просто не опубликуется —
+# сборщик на сервере пропускает её и пишет в лог.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python3 -m unittest discover -s tests -v
+      - run: python3 build.py --check
+      - run: python3 build.py --out /tmp/blog

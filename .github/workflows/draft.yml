@@ -1,0 +1,100 @@
+# Черновик статьи от ИИ: каждый день в 06:00 МСК и по кнопке «Написать черновик сейчас» в Pages CMS.
+# Пишет в content/posts/ файл с draft: true — на сайт он не попадает, пока Аня не снимет галочку.
+# Модель — по подписке через CLAUDE_CODE_OAUTH_TOKEN (секрет репозитория, выдаёт `claude setup-token`).
+name: draft
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      payload:
+        description: Pages CMS payload as JSON
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: draft
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      MAX_PENDING: "3"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Тема и проверка очереди
+        id: prep
+        env:
+          PAYLOAD: ${{ inputs.payload }}
+          EVENT: ${{ github.event_name }}
+          HAS_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+        run: |
+          if [ "$HAS_TOKEN" != "true" ]; then
+            echo "::error::нет секрета CLAUDE_CODE_OAUTH_TOKEN — генератор выключен"; exit 1
+          fi
+          python3 - <<'PY'
+          import json, os, re, pathlib
+          tema = ""
+          raw = os.environ.get("PAYLOAD") or ""
+          if raw:
+              try:
+                  tema = (json.loads(raw).get("inputs") or {}).get("tema") or ""
+              except ValueError:
+                  pass
+          tema = " ".join(tema.split())[:300]
+          pending = 0
+          for p in pathlib.Path("content/posts").glob("*.md"):
+              head = p.read_text(encoding="utf-8").split("\n---", 1)[0]
+              if re.search(r"^draft:\s*true", head, re.M) and re.search(r"^generated:\s*true", head, re.M):
+                  pending += 1
+          skip = os.environ["EVENT"] == "schedule" and pending >= int(os.environ["MAX_PENDING"])
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"skip={'1' if skip else ''}\n")
+              f.write("tema<<EOF_TEMA\n" + tema + "\nEOF_TEMA\n")
+          print(f"непроверенных черновиков: {pending}, тема: {tema or 'из списка'}" + (" — пропуск" if skip else ""))
+          PY
+
+      - uses: actions/setup-node@v4
+        if: steps.prep.outputs.skip == ''
+        with:
+          node-version: "22"
+
+      - name: Черновик
+        if: steps.prep.outputs.skip == ''
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          TEMA: ${{ steps.prep.outputs.tema }}
+          TZ: Europe/Moscow
+        run: |
+          npm install -g @anthropic-ai/claude-code@2.1.301
+          claude -p "$(cat prompts/draft.md)" \
+            --model claude-sonnet-5-5 \
+            --permission-mode acceptEdits \
+            --allowedTools "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch" \
+            --disallowedTools "Bash" \
+            --setting-sources project
+
+      - name: Проверка и коммит
+        if: steps.prep.outputs.skip == ''
+        run: |
+          # генератор вправе трогать только статьи и список тем
+          bad=$(git status --porcelain -uall | awk '{print $2}' | grep -vE '^(content/posts/[^/]+\.md|content/temy\.yml)$' || true)
+          if [ -n "$bad" ]; then echo "::error::генератор изменил лишнее: $bad"; exit 1; fi
+          if [ -z "$(git status --porcelain -uall content/posts)" ]; then echo "черновика нет"; exit 0; fi
+          python3 build.py --check
+          python3 build.py --out /tmp/blog-check >/dev/null
+          f=$(git status --porcelain -uall content/posts | awk '{print $2}' | head -1)
+          grep -qE '^draft:\s*true' "$f" || { echo "::error::$f без draft: true"; exit 1; }
+          title=$(sed -n 's/^title: *"\{0,1\}\(.*[^"]\)"\{0,1\}$/\1/p' "$f" | head -1)
+          git config user.name "Генератор блога"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add content/posts content/temy.yml
+          git commit -m "черновик: ${title:-$f}"
+          git push

@@ -1,0 +1,11 @@
+[Unit]
+Description=VebVerf: блог — синхронизация раз в 5 минут
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+RandomizedDelaySec=20s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,113 @@
+# Pages CMS — админка блога вебверфь.рф (https://app.pagescms.org).
+# Сохранение в CMS = коммит в main этого репозитория → сервер в течение 5 минут пересобирает /blog/.
+# Публикуется статья, у которой снята галочка «Черновик» и дата не в будущем.
+
+media:
+  input: content/media
+  output: /blog/media
+  rename: safe
+  extensions: [jpg, jpeg, png, webp]
+
+content:
+  - name: posts
+    label: Статьи
+    type: collection
+    path: content/posts
+    filename:
+      template: "{year}-{month}-{day}-{slug}.md"
+      field: create
+    view:
+      fields: [title, date, draft, generated]
+      primary: title
+      sort: [date, title]
+      search: [title, description]
+      default:
+        sort: date
+        order: desc
+    fields:
+      - name: title
+        label: Заголовок
+        type: string
+        required: true
+        options:
+          maxlength: 110
+      - name: slug
+        label: Адрес статьи
+        type: string
+        required: true
+        description: "Латиницей через дефис — станет ссылкой вебверфь.рф/blog/<адрес>.html. Например: priemka-gruzovika-bez-bumag"
+        pattern:
+          regex: "^[a-z0-9]+(-[a-z0-9]+)*$"
+          message: "Только маленькие латинские буквы, цифры и дефис"
+      - name: date
+        label: Дата публикации
+        type: date
+        description: Статья с датой в будущем появится на сайте в этот день сама
+        options:
+          format: yyyy-MM-dd
+      - name: draft
+        label: Черновик
+        type: boolean
+        default: true
+        description: Пока галочка стоит, статьи нет на сайте и анонс в каналы не уходит. Сняла и сохранила — через 5 минут статья на сайте.
+      - name: description
+        label: Анонс
+        type: text
+        required: true
+        description: 1–2 предложения. Идут под заголовком, в поиск Яндекса и в пост в каналах.
+        options:
+          maxlength: 260
+      - name: cover
+        label: Обложка
+        type: image
+        description: Горизонтальная, 16:9, от 1600 px по ширине
+      - name: cover_alt
+        label: Подпись к обложке (для незрячих и поиска)
+        type: string
+      - name: generated
+        label: Написано ИИ
+        type: boolean
+        default: false
+        description: Черновик от генератора. Перед публикацией — проверить каждую цифру и факт.
+      - name: body
+        label: Текст
+        type: rich-text
+        options:
+          format: markdown
+          rename: safe
+    actions:
+      - name: draft-now
+        label: Написать черновик сейчас
+        scope: collection
+        workflow: draft.yml
+        confirm:
+          title: Написать черновик?
+          message: Генератор возьмёт тему (вашу или следующую из списка «Темы») и через 5–10 минут положит черновик в «Статьи».
+          button: Написать
+        fields:
+          - name: tema
+            label: Тема (необязательно — иначе следующая из списка)
+            type: textarea
+
+  - name: temy
+    label: Темы для черновиков
+    type: file
+    path: content/temy.yml
+    format: yaml
+    fields:
+      - name: temy
+        label: Темы
+        type: object
+        list: true
+        fields:
+          - name: tema
+            label: Тема
+            type: string
+            required: true
+          - name: zametka
+            label: Что важно сказать
+            type: text
+          - name: sdelano
+            label: Черновик написан (дата)
+            type: string
+            description: Генератор ставит дату сам. Очистите поле, чтобы тему взяли снова.

@@ -1,0 +1,14 @@
+[Unit]
+Description=VebVerf: блог — забрать статьи с GitHub, собрать /blog/, анонсировать новое
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Рабочая папка и .env — от vebverf-bot: анонсы идут его ботами и его отправителем (bot/blog_announce.py)
+WorkingDirectory=/opt/vebverf-bot
+EnvironmentFile=/opt/vebverf-bot/.env
+ExecStart=/usr/bin/python3 /opt/vebverf-blog/deploy/blog_sync.py
+ExecStartPost=/opt/vebverf-bot/.venv/bin/python -m bot.blog_announce
+User=root
+Nice=10
+TimeoutStartSec=10min
