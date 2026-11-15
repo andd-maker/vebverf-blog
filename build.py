@@ -373,6 +373,7 @@ class Post:
     toc: list = field(default_factory=list)
     cover: str | None = None
     cover_alt: str = ""
+    tema: str = ""
     draft: bool = False
     source: str = ""
     words: int = 0
@@ -419,6 +420,7 @@ def load_post(path: Path) -> Post:
     cover = safe_url(str(cover), image=True) if cover else None
     return Post(slug=slug, title=title, day=day, description=desc, body_html=html, toc=toc,
                 cover=cover, cover_alt=str(meta.get("cover_alt") or title), draft=bool(meta.get("draft")),
+                tema=" ".join(str(meta.get("tema") or "").split())[:80],
                 source=path.name, words=len(plain.split()),
                 youtube=youtube_url(str(meta.get("youtube") or "")),
                 youtube_title=str(meta.get("youtube_title") or "").strip())
@@ -478,6 +480,7 @@ box-shadow:inset 0 0 0 1px rgba(217,138,52,.18),0 14px 38px rgba(34,50,64,.16)}
 .plate .kicker{color:var(--ac)}
 .plate h1{font-size:clamp(30px,5.4vw,56px);letter-spacing:-.035em;margin:16px 0 12px;max-width:22ch}
 .plate p{margin:0;max-width:62ch;color:var(--plate-soft);font-size:clamp(16px,1.3vw,18px);font-weight:300}
+.meta .tema{color:#0f1b2d;background:#f0a13c;border-radius:999px;padding:2px 10px;font-weight:600}
 .meta{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:18px;font-family:'IBM Plex Mono',monospace;
 font-size:12px;letter-spacing:.06em;color:var(--plate-soft)}
 /* лента */
@@ -675,9 +678,10 @@ def render_post(p: Post, others: list[Post]) -> str:
         ld["image"] = SITE + p.cover
     ld_json = json.dumps(ld, ensure_ascii=False).replace("</", "<\\/")
     yt = youtube_button(p.youtube, p.youtube_title) if p.youtube else ""
+    tema = f'<span class="tema">{escape(p.tema)}</span>' if p.tema else ""
     body = f"""<header class="plate"><span class="kicker">Блог · {ru_date(p.day)}</span>
 <h1>{escape(p.title)}</h1><p>{escape(p.description)}</p>
-<div class="meta"><span>{p.minutes} мин чтения</span><a href="{BLOG}/">← все статьи</a></div>{yt}</header>
+<div class="meta"><span>{p.minutes} мин чтения</span>{tema}<a href="{BLOG}/">← все статьи</a></div>{yt}</header>
 <div class="post"><article class="body">{cover}{p.body_html}</article>
 <aside class="side">{toc}{ORDER_BOX}</aside></div>
 {more}"""
@@ -748,7 +752,8 @@ def build(content: Path, out: Path, today: date) -> dict:
                 shutil.copyfile(f, dst)
                 copied += 1
     feed = [{"slug": p.slug, "title": p.title, "description": p.description, "date": p.day.isoformat(),
-             "url": SITE + p.url, "cover": p.cover, "youtube": p.youtube} for p in live]
+             "url": SITE + p.url, "cover": p.cover, "youtube": p.youtube,
+             "minutes": p.minutes, "tema": p.tema} for p in live]
     (out / "posts.json").write_text(json.dumps(feed, ensure_ascii=False, indent=1), encoding="utf-8")
     return {"published": len(live), "drafts": sum(p.draft for p in posts),
             "scheduled": sum(1 for p in posts if not p.draft and p.day > today), "media": copied, "errors": errors}
