@@ -100,10 +100,12 @@ class Markdown(unittest.TestCase):
 
 class Yaml(unittest.TestCase):
     def test_temy_list(self):
+        """Файл тем живой: у первой темы sdelano уже может быть заполнено — проверяем структуру, не значения."""
         data = build.parse_yaml((ROOT / "content" / "temy.yml").read_text(encoding="utf-8"))
         self.assertGreater(len(data["temy"]), 5)
         self.assertIn("tema", data["temy"][0])
-        self.assertEqual(data["temy"][0]["sdelano"], "")
+        self.assertIn("sdelano", data["temy"][0])
+        self.assertTrue(any(not it.get("sdelano") for it in data["temy"]))   # есть тема, готовая к работе
 
     def test_literal_block(self):
         self.assertEqual(build.parse_yaml("a: |\n  x\n  y\nb: 1")["a"], "x\ny")
